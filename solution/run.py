@@ -1,11 +1,14 @@
-"""Regenera la entrega v2 (enfoque de Javier) desde los datos del partido.
+"""Regenera la entrega final (v3) desde los datos del partido.
 
 Uso:
-    python solution/run.py --out evaluation/results/run_v2.csv [--sin-cache]
+    python solution/run.py --out "Latent XI GT.csv" [--sin-cache] [--sin-detector]
+
+--sin-cache     lee el ATD crudo (ignora el caché .npz).
+--sin-detector  solo la regla de huecos: regenera la versión anterior (v2).
 
 Necesita MTAH_DATA_DIR apuntando a la carpeta de datos (fuera del repo).
 Etapas: cargar -> semillas -> orientación -> features -> modelo de forma
--> calibración -> pausas (D) -> Viterbi H/A -> CSV.
+-> calibración -> pausas (regla + detector DFL) -> Viterbi H/A -> CSV.
 """
 import argparse
 import sys
@@ -369,7 +372,7 @@ def posesiones(etq):
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=str(ROOT / "evaluation" / "results" / "run_v2.csv"))
+    ap.add_argument("--out", default=str(ROOT / "evaluation" / "results" / "run_v3.csv"))
     ap.add_argument("--sin-detector", action="store_true", help="solo la regla de huecos (regenera la v2)")
     ap.add_argument("--sin-cache", action="store_true", help="leer el ATD crudo e ignorar el caché .npz")
     args = ap.parse_args()
