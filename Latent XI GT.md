@@ -97,7 +97,7 @@ python evaluation/validate_submission.py "Latent XI GT.csv"
 
 - `solution/run.py` lee los archivos oficiales del concurso, que no se incluyen en este repositorio. Versiones fijadas, semillas fijas y `n_jobs=1`: dos corridas dan el mismo archivo (SHA256 `F929326EEE976E3D55CC84862E2E0C58D539B92D40F510A57E02B3A353F21733`).
 - `--sin-detector` regenera la versión anterior sin DFL (SHA256 `7BD3653C0E82896DDE7135E6AEBE68DA47797B12E10AC41301E20B8D6755B5AA`).
-- `solution/dfl_train.npz` (200,532 filas × 4 features + etiqueta) es una tabla derivada de los 7 partidos DFL. Se obtiene con las celdas de la sección «DFL» de `notebooks/mtah_posesion.ipynb` a partir de los datos abiertos del dataset en Hugging Face (`pysport/idsse-data`).
+- `solution/dfl_train.npz` (200,532 filas × 4 features + etiqueta) es una tabla derivada de los 7 partidos DFL (1 de cada 5 frames). Las celdas de la sección DFL de `notebooks/mtah_posesion.ipynb` descargan los partidos (Hugging Face, `pysport/idsse-data`) y calculan las features y la etiqueta balón vivo/muerto; esa tabla se guardó como este archivo, y `run.py` la usa tal cual.
 
 ## 11. Atribución
 
