@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import binary_closing, distance_transform_edt
 from scipy.optimize import minimize_scalar
 from scipy.special import expit, logit
 from sklearn.metrics import log_loss
@@ -36,6 +36,10 @@ H, A, D = 0, 1, 2
 EPS = 1e-6
 LAMBDA = 2                                       # costo por cambio de posesión
 TRAMOS = ["0-2 s", "2-5 s", "5-10 s", ">10 s"]
+DFL_TRAIN = ROOT / "solution" / "dfl_train.npz"   # features + balón muerto de 7 partidos DFL (CC-BY 4.0)
+COLS_D = ["vel_3s", "vel_10s", "vel_min_3s", "sy_3s"]
+UMBRAL_D = 0.9                                    # solo se marca pausa si el detector está muy seguro
+CIERRE_S, MIN_PAUSA_S = 2, 5                      # rellenar huecos < 2 s; descartar pausas nuevas < 5 s
 BASE = ["L_cx", "L_sx", "L_sy", "L_linea_def", "L_vel",
         "V_cx", "V_sx", "V_sy", "V_linea_def", "V_vel"]
 
@@ -271,6 +275,51 @@ def pausas(bal, con_balon, calificado, feats):
     return muerto & calificado, es_pausa, g
 
 
+# ---------------------------------------------------------------- 6b. detector de pausas (entrenado con DFL)
+def features_d(px, py, equipo):
+    """Features sin balón, una fila por frame. La misma fórmula que se usó con el DFL."""
+    desp = np.full(px.shape, np.nan, np.float32)
+    desp[12:-13] = np.hypot(px[25:] - px[:-25], py[25:] - py[:-25])      # desplazamiento en 1 s, centrado
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        v = np.array([np.nanmedian(desp[:, equipo == e], axis=1) for e in (0, 1)])
+        sy = np.array([np.nanstd(py[:, equipo == e], axis=1) for e in (0, 1)])
+        base = pd.DataFrame({"vel": np.nanmean(v, axis=0), "vel_min": np.nanmin(v, axis=0),
+                             "sy": np.nanmean(sy, axis=0)})
+
+    def ventana(s, n):
+        return s.rolling(n, center=True, min_periods=1).mean()
+
+    return pd.DataFrame({"vel_3s": ventana(base.vel, 75), "vel_10s": ventana(base.vel, 250),
+                         "vel_min_3s": ventana(base.vel_min, 75), "sy_3s": ventana(base.sy, 75)})
+
+
+def limpiar(m, cierre_s, min_s):
+    """Rellena huecos de menos de cierre_s y descarta tramos de menos de min_s."""
+    m = m.copy()
+    if cierre_s:
+        k = int(cierre_s * 25)
+        m = binary_closing(np.pad(m, k), structure=np.ones(k, bool))[k:-k]
+    inicios, largos = huecos(m, 0, len(m))
+    for s, l in zip(inicios, largos):
+        if l < min_s * 25:
+            m[s:s + l] = False
+    return m
+
+
+def pausas_detector(jug, equipo_slot, muerto, calificado):
+    """Regla de huecos + pausas nuevas del detector. La regla conserva siempre la prioridad."""
+    z = np.load(DFL_TRAIN)
+    detector = modelo_xgb().fit(z["X"], z["y"])
+    fd = features_d(jug[:, :, 0], jug[:, :, 1], equipo_slot)
+    ok = fd[COLS_D].notna().all(axis=1).values
+    p = np.zeros(N_FRAMES)
+    p[ok] = detector.predict_proba(fd.loc[ok, COLS_D].to_numpy())[:, 1]
+    nuevo = limpiar((p > UMBRAL_D) & calificado, CIERRE_S, MIN_PAUSA_S) & ~muerto
+    return muerto | nuevo
+
+
 # ---------------------------------------------------------------- 7. Viterbi H/A
 def viterbi(log_e, trans):
     T, K = log_e.shape
@@ -321,6 +370,7 @@ def posesiones(etq):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT / "evaluation" / "results" / "run_v2.csv"))
+    ap.add_argument("--sin-detector", action="store_true", help="solo la regla de huecos (regenera la v2)")
     ap.add_argument("--sin-cache", action="store_true", help="leer el ATD crudo e ignorar el caché .npz")
     args = ap.parse_args()
 
@@ -349,6 +399,11 @@ def main():
     muerto, es_pausa, g = pausas(bal, con_balon, calificado, feats)
     print(f"Huecos pausa: {es_pausa.sum()}/{len(es_pausa)} | D en calificados: {muerto[calificado].mean():.1%}")
     print(f"Velocidad media (m/s): pausa {g.vel[es_pausa].mean():.2f} | vivo {g.vel[~es_pausa].mean():.2f}")
+
+    if not args.sin_detector:
+        muerto_d = pausas_detector(jug, equipo_slot, muerto, calificado)
+        print(f"D en calificados: regla {muerto[calificado].mean():.1%} | regla + detector {muerto_d[calificado].mean():.1%}")
+        muerto = muerto_d
 
     etq = segmentar(p_local_cal, vis, control_claro, equipo_cercano, muerto, LAMBDA)
     n, media = posesiones(etq)
