@@ -192,3 +192,19 @@ competition only, under the terms you accept at enrolment.
   url    = {https://github.com/metrica-sports/more-than-a-hack-2027}
 }
 ```
+
+---
+
+## Latent XI GT: solución (Fase 1, posesión de balón)
+
+Segmentación en dos pasos: balón muerto (regla de huecos del balón + detector de pausas entrenado con datos abiertos de otros partidos) y, dentro de cada tramo con balón vivo, H/A con un Viterbi de dos estados sobre un modelo de forma de equipo (sin balón). Detalle, validación y limitaciones en el documento técnico `Latent XI GT.md`.
+
+**Reproducir** (Python 3.12, con los archivos oficiales del concurso en las rutas que usa `solution/run.py`):
+
+    pip install -r solution/requirements.txt
+    python solution/run.py --out "Latent XI GT.csv" --sin-cache
+    python evaluation/validate_submission.py "Latent XI GT.csv"
+
+`--sin-detector` regenera la versión anterior (sin datos DFL). Este repositorio no contiene datos del partido.
+
+**Atribución.** `solution/dfl_train.npz` es una tabla derivada de 7 partidos del conjunto abierto Sportec/DFL IDSSE (CC-BY 4.0): Bassek, M. et al. (2025), Scientific Data 12:195, doi:10.1038/s41597-025-04505-y.
