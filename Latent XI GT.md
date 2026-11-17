@@ -25,6 +25,8 @@ Como el balón está ausente en el 41% de los frames calificados (150 huecos, me
 
 No se etiquetó ni corrigió nada a mano, no hay constantes atadas a frames del partido salvo las ventanas calificadas oficiales (11,185–90,651 y 110,808–190,197), y no se usaron datos humanos del partido.
 
+Se usó un asistente de IA como apoyo para programar y redactar. Las decisiones de diseño, la validación y la verificación de resultados las tomó el equipo.
+
 ## 3. Reglas de posesión
 
 - Posesión = corrida máxima de H o de A con balón vivo; D la interrumpe.
